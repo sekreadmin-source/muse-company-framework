@@ -1,0 +1,32 @@
+# Hermes worker configuration — EXAMPLE ONLY.
+# Copy into the Hermes home and fill in your own values there.
+# Never commit a filled copy. Credentials belong in Hermes' own secure
+# mechanisms (environment/secret stores), never in this file in a repo.
+
+worker:
+  name: "hermes"
+  home: "~/.hermes"                 # where the worker keeps its state
+
+model:
+  # Any OpenAI-compatible endpoint: a local router, a hosted API, etc.
+  base_url: "http://127.0.0.1:PORT/v1"
+  model: "your-model-or-combo-name"
+  api_key_env: "WORKER_API_KEY"     # name of the env var, not the key
+
+streams:
+  # One session per stream; a session works one package at a time.
+  - name: "stream-a"
+    role: "{{STREAM_A_ROLE}}"
+    queue_section: "Stream A"
+  - name: "stream-b"
+    role: "{{STREAM_B_ROLE}}"
+    queue_section: "Stream B"
+
+queue:
+  file: "workspace/worker-queue.md" # relative to the Muse home
+  max_concurrent_sessions: 2        # respect your machine's memory
+
+gateway:
+  enabled: false                    # chat control is optional
+  # Restrict the gateway to the owner's own user ID on the chat platform.
+  allowed_users: ["{{OWNER_CHAT_USER_ID}}"]

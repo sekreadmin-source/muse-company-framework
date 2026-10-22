@@ -1,0 +1,23 @@
+# Never commit real company data or secrets.
+# Filled configuration
+config/company.yaml
+
+# Filled home files and live working documents
+AGENTS.md
+SOUL.md
+IDENTITY.md
+USER.md
+MEMORY.md
+workspace/
+
+# Credential material of any kind
+*.env
+*.key
+*.pem
+*credentials*
+*secret*
+*.muse-github-snapshot-sync.json*
+
+# OS / editor noise
+.DS_Store
+*.tmp

@@ -1,0 +1,41 @@
+# FICTIONAL EXAMPLE — "Acme Studio" does not exist. This file only shows the
+# shape of a filled configuration.
+company:
+  name: "Acme Studio"
+  legal_name: ""
+  tagline: "Design & automation for small retailers"
+  industry: "Creative services"
+
+owner:
+  display_name: "Boss"
+  public_alias: "acmeboss"
+  timezone: "Europe/Berlin"
+  language: "en"
+
+coo:
+  agent_name: "Ada"
+  monitoring_interval_minutes: 60
+
+divisions:
+  - slug: "client-work"
+    name: "Client Work Division"
+    mission: "Win and deliver client projects."
+    lead: "Marco"
+    researchers: ["Ines"]
+  - slug: "content"
+    name: "Content Division"
+    mission: "Publish the studio's content and manage its channels."
+    lead: "Lena"
+    researchers: []
+
+workers: []
+
+funds:
+  operational_accounts_label: "operational"
+  personal_accounts_label: "personal"
+  custody_holder: "owner"
+
+paths:
+  divisions_dir: "workspace/divisi"
+  files_dir: "workspace/your_files"
+  skills_dir: "workspace/custom-skills"

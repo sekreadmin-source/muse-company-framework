@@ -1,0 +1,32 @@
+# TEMPLATE — optional chat gateway for the worker agent, supervised by systemd.
+# Adapt paths, user, and environment to your machine, then:
+#   cp gateway-hermes.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now gateway-hermes
+#
+# Notes from practice:
+# - Restart=always matters: gateways die on machine replacements and
+#   network changes; supervision is what brings them back unattended.
+# - Do NOT name the unit the same as the worker CLI's own gateway
+#   subcommand target if the CLI manages a unit by that name — collisions
+#   make the CLI refuse to operate. (Hence "gateway-hermes".)
+# - If your egress goes through a proxy, the unit needs the proxy
+#   environment or outbound calls fail silently.
+
+[Unit]
+Description=Worker agent chat gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# User=your-user
+Environment=HOME=/home/your-user
+Environment=TZ=Your/Timezone
+# Environment=http_proxy=http://your-proxy:port
+# Environment=https_proxy=http://your-proxy:port
+ExecStart=/path/to/worker gateway run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

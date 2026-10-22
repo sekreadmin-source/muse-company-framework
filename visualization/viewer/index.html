@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual Office</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d1117; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #hud { position: fixed; top: 14px; left: 18px; color: #e6edf3; z-index: 10;
+    pointer-events: none; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  #hud h1 { font-size: 20px; margin: 0; letter-spacing: .04em; }
+  #hud p  { font-size: 12px; margin: 2px 0 0; color: #9fb3c8; letter-spacing: .14em;
+    text-transform: uppercase; }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="hud"><h1 id="company">Virtual Office</h1><p id="subtitle"></p></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ── Muse Company Framework — 3D office viewer ─────────────────────────────
+   Layout comes from office.json (rooms = divisions, agents = personas).
+   Activity arrives as events (see ../events-contract.md) and is rendered
+   ONLY as movement and light. Event text is never displayed.            */
+
+const params = new URLSearchParams(location.search);
+
+const DEMO_CONFIG = {
+  company: 'Your Company', subtitle: 'Virtual Office',
+  rooms: [
+    { id: 'services',   label: 'Services',   color: '#4f8ff7' },
+    { id: 'research',   label: 'Research',   color: '#f7b955' },
+    { id: 'operations', label: 'Operations', color: '#7bd88f' }
+  ],
+  agents: [
+    { id: 'coo',          label: 'COO',          room: 'operations', color: '#ffd700' },
+    { id: 'lead-a',       label: 'Lead A',       room: 'services',   color: '#4f8ff7' },
+    { id: 'researcher-a', label: 'Researcher A', room: 'research',   color: '#f7b955' }
+  ]
+};
+
+async function loadConfig() {
+  try {
+    const r = await fetch('office.json', { cache: 'no-store' });
+    if (r.ok) return await r.json();
+  } catch (e) { /* fall through to demo config */ }
+  return DEMO_CONFIG;
+}
+
+const config = await loadConfig();
+document.getElementById('company').textContent = config.company || 'Virtual Office';
+document.getElementById('subtitle').textContent = config.subtitle || '';
+document.title = (config.company || 'Virtual') + ' — Virtual Office';
+
+/* ── Scene ─────────────────────────────────────────────────────────────── */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog = new THREE.Fog(0x0d1117, 60, 140);
+
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(0, 17, 24);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.46;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const moon = new THREE.DirectionalLight(0xbfd4ff, 0.5);
+moon.position.set(12, 24, 8);
+scene.add(moon);
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(90, 60),
+  new THREE.MeshStandardMaterial({ color: 0x11161d, roughness: 1 })
+);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+function textSprite(text, color = '#e6edf3', size = 44) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = `600 ${size}px system-ui, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 8;
+  g.fillStyle = color; g.fillText(text, 256, 64);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  spr.scale.set(6, 1.5, 1);
+  return spr;
+}
+
+/* ── Rooms ─────────────────────────────────────────────────────────────── */
+const ROOM_W = 13, ROOM_D = 11, GAP = 1.6;
+const rooms = new Map();
+const perRow = Math.ceil(Math.sqrt(config.rooms.length));
+
+config.rooms.forEach((rc, i) => {
+  const col = i % perRow, row = Math.floor(i / perRow);
+  const x = (col - (perRow - 1) / 2) * (ROOM_W + GAP);
+  const z = (row - (Math.ceil(config.rooms.length / perRow) - 1) / 2) * (ROOM_D + GAP);
+  const color = new THREE.Color(rc.color || '#4f8ff7');
+  const group = new THREE.Group();
+
+  const pad = new THREE.Mesh(
+    new THREE.BoxGeometry(ROOM_W, 0.18, ROOM_D),
+    new THREE.MeshStandardMaterial({ color: color.clone().multiplyScalar(0.16), roughness: 0.9 })
+  );
+  pad.position.y = 0.09; group.add(pad);
+
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: color.clone().multiplyScalar(0.5), roughness: 0.7,
+    transparent: true, opacity: 0.55
+  });
+  const back = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W, 2.6, 0.18), wallMat);
+  back.position.set(0, 1.3, -ROOM_D / 2); group.add(back);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.6, ROOM_D), wallMat);
+  left.position.set(-ROOM_W / 2, 1.3, 0); group.add(left);
+  const right = left.clone(); right.position.x = ROOM_W / 2; group.add(right);
+
+  const desks = [];
+  const deskMat = new THREE.MeshStandardMaterial({ color: 0x2b3442, roughness: 0.8 });
+  for (let d = 0; d < 3; d++) {
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.1), deskMat);
+    desk.position.set(-ROOM_W / 2 + 2.4 + d * 3.6, 0.45, -ROOM_D / 2 + 2.6);
+    group.add(desk);
+    desks.push(new THREE.Vector3(x + desk.position.x, 0, z + desk.position.z + 1.15));
+  }
+
+  const light = new THREE.PointLight(color, 0.5, 22);
+  light.position.set(0, 4.2, 0); group.add(light);
+
+  const label = textSprite(rc.label || rc.id, '#cfe3ff', 40);
+  label.position.set(0, 4.6, -ROOM_D / 2); group.add(label);
+
+  group.position.set(x, 0, z);
+  scene.add(group);
+  rooms.set(rc.id, {
+    id: rc.id, center: new THREE.Vector3(x, 0, z), desks,
+    door: new THREE.Vector3(x, 0, z + ROOM_D / 2 - 0.6),
+    light, activity: 0
+  });
+});
+
+/* ── Agents ────────────────────────────────────────────────────────────── */
+const agents = new Map();
+for (const ac of config.agents) {
+  const room = rooms.get(ac.room) || rooms.values().next().value;
+  if (!room) continue;
+  const color = new THREE.Color(ac.color || '#ffffff');
+  const grp = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.34, 0.75, 6, 14),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.55 })
+  );
+  body.position.y = 0.95; grp.add(body);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.27, 18, 14),
+    new THREE.MeshStandardMaterial({ color: 0xf2d5b8, roughness: 0.6 })
+  );
+  head.position.y = 1.95; grp.add(head);
+  const label = textSprite(ac.label || ac.id, '#ffffff', 40);
+  label.position.y = 2.85; grp.add(label);
+  const start = room.desks[0] || room.center;
+  grp.position.copy(start);
+  scene.add(grp);
+  agents.set(ac.id, {
+    id: ac.id, group: grp, room: room.id,
+    target: start.clone(), speed: 2.6, present: true, bob: Math.random() * 6
+  });
+}
+
+/* ── Events → animation only ───────────────────────────────────────────── */
+const seen = new Set();
+function applyEvent(ev) {
+  if (!ev || seen.has(ev.seq)) return;
+  if (ev.seq !== undefined) seen.add(ev.seq);
+  const a = agents.get(ev.agent);
+  const room = rooms.get(ev.division);
+  if (!a) return;
+  if (room) { a.room = room.id; room.activity = 1; }
+  const r = room || rooms.get(a.room);
+  if (!r) return;
+  const desk = r.desks[Math.floor(Math.random() * r.desks.length)];
+  switch (ev.kind) {
+    case 'arrive': a.present = true; a.group.visible = true;
+      a.group.position.copy(r.door); a.target.copy(desk); break;
+    case 'work':   a.target.copy(desk); break;
+    case 'move':   a.target.copy(Math.random() < 0.5 ? desk : r.door); break;
+    case 'idle':   a.target.copy(a.group.position); break;
+    case 'leave':  a.target.copy(r.door); a.present = false; break;
+  }
+}
+
+/* Demo mode: simulated rhythm so the shape is visible without a relay. */
+if (params.get('demo') === '1') {
+  const kinds = ['work', 'move', 'work', 'arrive', 'work', 'idle', 'leave', 'work'];
+  let seq = 0;
+  setInterval(() => {
+    const list = [...agents.values()];
+    const a = list[Math.floor(Math.random() * list.length)];
+    if (!a) return;
+    applyEvent({ seq: ++seq, agent: a.id, division: a.room,
+      kind: kinds[Math.floor(Math.random() * kinds.length)] });
+  }, 2000);
+}
+
+/* Live mode: SSE stream from your relay (see ../relay/README.md). */
+const streamUrl = params.get('stream');
+if (streamUrl) {
+  const es = new EventSource(streamUrl);
+  es.onmessage = (m) => { try { applyEvent(JSON.parse(m.data)); } catch (e) {} };
+}
+
+/* ── Loop ──────────────────────────────────────────────────────────────── */
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  for (const a of agents.values()) {
+    const p = a.group.position;
+    const d = a.target.clone().sub(p); d.y = 0;
+    const dist = d.length();
+    if (dist > 0.05) {
+      d.normalize().multiplyScalar(Math.min(dist, a.speed * dt));
+      p.add(d);
+      a.group.position.y = Math.abs(Math.sin(t * 7 + a.bob)) * 0.06;
+      a.group.rotation.y = Math.atan2(d.x, d.z);
+    } else {
+      a.group.position.y = 0;
+      if (!a.present) a.group.visible = false;
+    }
+  }
+  for (const r of rooms.values()) {
+    r.activity = Math.max(0, r.activity - dt * 0.08);
+    r.light.intensity = 0.45 + r.activity * 1.5;
+  }
+  if (!controls.enabled) camera.lookAt(0, 1, 0);
+  controls.update();
+  renderer.render(scene, camera);
+}
+tick();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

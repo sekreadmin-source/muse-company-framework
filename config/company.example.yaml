@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Company configuration — the single place where a deployment defines itself.
+# Copy to company.yaml and fill in your own values. Nothing in the framework
+# hardcodes a company; templates reference these keys as {{PLACEHOLDERS}}.
+# ─────────────────────────────────────────────────────────────────────────────
+
+company:
+  name: "Your Company"            # display name used across documents
+  legal_name: ""                  # optional, for official documents only
+  tagline: ""                     # optional one-liner
+  industry: ""                    # free text — drives nothing, documents intent
+
+owner:
+  display_name: "Owner"           # how the agent addresses the owner in chat
+  public_alias: ""                # optional public-facing alias
+  timezone: "UTC"                 # IANA timezone, e.g. "Europe/Berlin"
+  language: "en"                  # default conversation language
+
+coo:
+  agent_name: "COO"               # your main Muse agent's working name
+  monitoring_interval_minutes: 60 # how often the COO sweeps the whole company
+
+# Declare your divisions. Each becomes one folder + one task board + one chat.
+# Rename, remove, or add freely — the framework does not fix the count.
+divisions:
+  - slug: "services"
+    name: "Services Division"
+    mission: "Sell and deliver the company's services."
+    lead: "Lead persona name"
+    researchers: []
+  - slug: "research"
+    name: "Research Division"
+    mission: "Produce the insight the other divisions act on."
+    lead: "Lead persona name"
+    researchers: []
+
+# Optional external worker agents (research executors, specialists).
+# Leave empty if your COO works alone. The framework's built-in worker is
+# Hermes Agent — see workers/hermes/ for its integration skeletons.
+workers:
+  - name: "hermes"
+    role: "Reference worker: executes COO work packages (research/execution streams)"
+    queue_file: "workspace/worker-queue.md"
+    home: "~/.hermes"
+    max_concurrent_sessions: 2
+
+# Financial safety frame — principles only; your real accounts never go here.
+funds:
+  operational_accounts_label: "operational"   # work money
+  personal_accounts_label: "personal"         # owner money — withdrawal only
+  custody_holder: "worker"                    # who physically holds keys, if any
+
+# Where things live inside the Muse home (defaults match install.sh).
+paths:
+  divisions_dir: "workspace/divisi"
+  files_dir: "workspace/your_files"
+  skills_dir: "workspace/custom-skills"
